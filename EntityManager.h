@@ -10,6 +10,22 @@
 
 #include <EASTL/unique_ptr.h>
 
+// Support formatting for entt::entity.
+template <> struct fmt::formatter<entt::entity>
+{
+    constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator
+    {
+        // TODO: Support formatting specifiers
+        return ctx.begin();
+    }
+
+    auto format(const entt::entity& value, format_context& ctx) const -> format_context::iterator
+    {
+        return fmt::format_to(
+            ctx.out(), "{}:{}", static_cast<unsigned>(entt::to_entity(value)), entt::to_version(value));
+    }
+};
+
 namespace Urho3D
 {
 
@@ -326,8 +342,7 @@ template <class T> void DefaultEntityComponentFactory<T>::CommitActions(entt::re
     {
         if (!registry.valid(action.entity_))
         {
-            URHO3D_LOGERROR("Cannot edit component '{}' in entity {}:{}", GetName(),
-                EntityManager::GetEntityIndex(action.entity_), EntityManager::GetEntityVersion(action.entity_));
+            URHO3D_LOGERROR("Cannot edit component '{}' in entity {}", GetName(), action.entity_);
             continue;
         }
 

@@ -74,7 +74,7 @@ void EntityManager::SerializeAuxiliaryData(Archive& archive)
 
 ea::string EntityManager::GetEntityLabel(entt::entity entity) const
 {
-    return Format("{}:{}", GetEntityIndex(entity), GetEntityVersion(entity));
+    return Format("{}", entity);
 }
 
 bool EntityManager::RenderManagerInspector()
@@ -150,11 +150,11 @@ bool EntityManager::RenderEntityInspector(entt::entity entity)
 void EntityManager::RenderEntityHeader(entt::entity entity)
 {
     ColorScopeGuard colorScopeGuard{ImGuiCol_Text, Color::YELLOW};
-    ui::Text("Entity %d:%d", GetEntityVersion(entity), GetEntityIndex(entity));
+    ui::Text("Entity %s", Format("{}", entity).c_str());
 
     ui::SameLine();
     if (ui::Button(ICON_FA_COPY "##CopyEntityID"))
-        SDL_SetClipboardText(Format("{}", entity).c_str());
+        SDL_SetClipboardText(Format("{}", static_cast<unsigned>(entity)).c_str());
     if (ui::IsItemHovered())
         ui::SetTooltip("Copy entity ID to clipboard");
 }
@@ -263,8 +263,7 @@ void EntityManager::CommitActions()
         {
             if (!registry_.valid(entity) || factory->HasComponent(registry_, entity))
             {
-                URHO3D_LOGERROR("Cannot add component '{}' to entity {}:{}", factory->GetName(),
-                    GetEntityIndex(entity), GetEntityVersion(entity));
+                URHO3D_LOGERROR("Cannot add component '{}' to entity {}", factory->GetName(), entity);
                 continue;
             }
 
@@ -280,8 +279,7 @@ void EntityManager::CommitActions()
         {
             if (!registry_.valid(entity) || !factory->HasComponent(registry_, entity))
             {
-                URHO3D_LOGERROR("Cannot remove component '{}' from entity {}:{}", factory->GetName(),
-                    GetEntityIndex(entity), GetEntityVersion(entity));
+                URHO3D_LOGERROR("Cannot remove component '{}' from entity {}", factory->GetName(), entity);
                 continue;
             }
 
@@ -395,7 +393,7 @@ void EntityManager::MaterializeEntity(entt::entity entity)
 {
     if (IsEntityMaterialized(entity))
     {
-        URHO3D_LOGWARNING("Entity {}:{} is already materialized", GetEntityIndex(entity), GetEntityVersion(entity));
+        URHO3D_LOGWARNING("Entity {} is already materialized", entity);
         return;
     }
 
@@ -416,7 +414,7 @@ void EntityManager::DematerializeEntity(entt::entity entity)
 {
     if (!IsEntityMaterialized(entity))
     {
-        URHO3D_LOGWARNING("Entity {}:{} is already dematerialized", GetEntityIndex(entity), GetEntityVersion(entity));
+        URHO3D_LOGWARNING("Entity {} is already dematerialized", entity);
         return;
     }
 
@@ -437,7 +435,7 @@ ByteVector EntityManager::EncodeEntity(entt::entity entity)
 {
     if (!registry_.valid(entity))
     {
-        URHO3D_LOGERROR("Cannot encode entity {}:{}", GetEntityIndex(entity), GetEntityVersion(entity));
+        URHO3D_LOGERROR("Cannot encode entity {}", entity);
         return {};
     }
 
@@ -451,7 +449,7 @@ void EntityManager::DecodeEntity(entt::entity entity, const ByteVector& data)
 {
     if (!registry_.valid(entity))
     {
-        URHO3D_LOGERROR("Cannot decode entity {}:{}", GetEntityIndex(entity), GetEntityVersion(entity));
+        URHO3D_LOGERROR("Cannot decode entity {}", entity);
         return;
     }
 

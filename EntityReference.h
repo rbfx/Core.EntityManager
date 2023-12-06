@@ -14,8 +14,7 @@ class EntityManager;
 /// Connects Node to a specific entity in the EntityManager.
 /// Don't create any other components on the same Node manually, they may get removed.
 /// Nodes with EntityReference are managed by the EntityManager.
-class PLUGIN_CORE_ENTITYMANAGER_API EntityReference
-    : public TrackedComponent<TrackedComponentBase, EntityManager>
+class PLUGIN_CORE_ENTITYMANAGER_API EntityReference : public TrackedComponent<TrackedComponentBase, EntityManager>
 {
     URHO3D_OBJECT(EntityReference, Component);
 
