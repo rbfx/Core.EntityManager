@@ -431,6 +431,17 @@ void EntityManager::DematerializeEntity(entt::entity entity)
     registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{false});
 }
 
+ea::vector<entt::entity> EntityManager::GetEntities() const
+{
+    ea::vector<entt::entity> result;
+    if (const auto* storage = registry_.storage<entt::entity>())
+    {
+        for (const auto& [entity] : storage->each())
+            result.push_back(entity);
+    }
+    return result;
+}
+
 ByteVector EntityManager::EncodeEntity(entt::entity entity)
 {
     if (!registry_.valid(entity))

@@ -107,6 +107,7 @@ public:
 
     /// Per-entity serialization. Use with caution.
     /// @{
+    ea::vector<entt::entity> GetEntities() const;
     ByteVector EncodeEntity(entt::entity entity);
     void DecodeEntity(entt::entity entity, const ByteVector& data);
     void QueueDecodeEntity(EntityReference* entityReference, const ByteVector& data);
