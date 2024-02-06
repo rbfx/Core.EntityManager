@@ -107,6 +107,9 @@ public:
 
     /// Per-entity serialization. Use with caution.
     /// @{
+    ByteVector EncodeEntity(entt::registry& registry, entt::entity entity);
+    void DecodeEntity(entt::registry& registry, entt::entity entity, const ByteVector& data);
+
     ea::vector<entt::entity> GetEntities() const;
     ByteVector EncodeEntity(entt::entity entity);
     void DecodeEntity(entt::entity entity, const ByteVector& data);
@@ -161,7 +164,7 @@ private:
     void SerializeRegistry(Archive& archive);
     void SerializeEntities(Archive& archive);
     void SerializeUserComponents(Archive& archive);
-    void SerializeStandaloneEntity(Archive& archive, entt::entity entity);
+    void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity);
 
     void RenderEntityHeader(entt::entity entity);
     EntityComponentFactory* RenderCreateComponent(entt::entity entity);

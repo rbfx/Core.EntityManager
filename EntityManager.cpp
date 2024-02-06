@@ -442,9 +442,9 @@ ea::vector<entt::entity> EntityManager::GetEntities() const
     return result;
 }
 
-ByteVector EntityManager::EncodeEntity(entt::entity entity)
+ByteVector EntityManager::EncodeEntity(entt::registry& registry, entt::entity entity)
 {
-    if (!registry_.valid(entity))
+    if (!registry.valid(entity))
     {
         URHO3D_LOGERROR("Cannot encode entity {}", entity);
         return {};
@@ -452,13 +452,13 @@ ByteVector EntityManager::EncodeEntity(entt::entity entity)
 
     VectorBuffer buffer;
     BinaryOutputArchive archive{context_, buffer};
-    SerializeStandaloneEntity(archive, entity);
+    SerializeStandaloneEntity(archive, registry, entity);
     return buffer.GetBuffer();
 }
 
-void EntityManager::DecodeEntity(entt::entity entity, const ByteVector& data)
+void EntityManager::DecodeEntity(entt::registry& registry, entt::entity entity, const ByteVector& data)
 {
-    if (!registry_.valid(entity))
+    if (!registry.valid(entity))
     {
         URHO3D_LOGERROR("Cannot decode entity {}", entity);
         return;
@@ -466,7 +466,17 @@ void EntityManager::DecodeEntity(entt::entity entity, const ByteVector& data)
 
     MemoryBuffer buffer{data};
     BinaryInputArchive archive{context_, buffer};
-    SerializeStandaloneEntity(archive, entity);
+    SerializeStandaloneEntity(archive, registry, entity);
+}
+
+ByteVector EntityManager::EncodeEntity(entt::entity entity)
+{
+    return EncodeEntity(registry_, entity);
+}
+
+void EntityManager::DecodeEntity(entt::entity entity, const ByteVector& data)
+{
+    DecodeEntity(registry_, entity, data);
 }
 
 void EntityManager::QueueDecodeEntity(EntityReference* entityReference, const ByteVector& data)
@@ -592,7 +602,7 @@ void EntityManager::SerializeUserComponents(Archive& archive)
     }
 }
 
-void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::entity entity)
+void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity)
 {
     EnsureComponentTypesSorted();
 
@@ -615,16 +625,16 @@ void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::entity ent
 
             if (const auto factory = FindComponentType(typeName))
             {
-                const bool exists = factory->HasComponent(registry_, entity);
+                const bool exists = factory->HasComponent(registry, entity);
                 if (shouldExist)
                 {
                     if (!exists)
-                        factory->CreateComponent(registry_, entity);
-                    factory->SerializeComponent(archive, registry_, entity, version);
+                        factory->CreateComponent(registry, entity);
+                    factory->SerializeComponent(archive, registry, entity, version);
                 }
                 else if (exists)
                 {
-                    factory->DestroyComponent(registry_, entity);
+                    factory->DestroyComponent(registry, entity);
                 }
             }
         }
@@ -638,14 +648,14 @@ void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::entity ent
             ea::string typeName = factory->GetName();
             SerializeValue(archive, "_type", typeName);
 
-            bool exists = factory->HasComponent(registry_, entity);
+            bool exists = factory->HasComponent(registry, entity);
             SerializeValue(archive, "_exists", exists);
 
             unsigned version = factory->GetVersion();
             SerializeValue(archive, "_version", version);
 
             if (exists)
-                factory->SerializeComponent(archive, registry_, entity, version);
+                factory->SerializeComponent(archive, registry, entity, version);
         }
     }
 }
