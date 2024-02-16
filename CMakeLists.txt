@@ -1,6 +1,5 @@
-file (GLOB_RECURSE SOURCE_FILES *.h *.cpp)
+cmake_minimum_required(VERSION 3.21)
+project (Plugin.Core.EntityManager)
 
-set (TARGET_NAME Plugin.Core.EntityManager)
-add_library(${TARGET_NAME} SHARED ${SOURCE_FILES})
-define_static_plugin (${TARGET_NAME} "${TARGET_NAME}")
-target_link_libraries (${TARGET_NAME} PRIVATE Urho3D)
+file (GLOB_RECURSE SOURCE_FILES *.h *.cpp)
+add_plugin (${PROJECT_NAME} "${SOURCE_FILES}")
