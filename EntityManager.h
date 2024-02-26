@@ -75,7 +75,7 @@ class PLUGIN_CORE_ENTITYMANAGER_API EntityManager : public TrackedComponentRegis
 public:
     Signal<void(entt::registry& registry, entt::entity entity, EntityReference* reference)> OnEntityMaterialized;
     Signal<void(entt::registry& registry, entt::entity entity, EntityReference* reference)> OnEntityDematerialized;
-    Signal<void(entt::registry& registry)> OnManagerUpdated;
+    Signal<void(entt::registry& registry)> OnPostUpdateSynchronized;
 
     EntityManager(Context* context);
     static void RegisterObject(Context* context);
@@ -138,7 +138,10 @@ public:
     /// @}
 
 protected:
+    /// Return display label for the entity.
     virtual ea::string GetEntityLabel(entt::entity entity) const;
+    /// Post-update synchronization. Executed even if the Scene is paused.
+    virtual void ForcedPostUpdate();
 
     entt::registry registry_;
 
@@ -154,6 +157,7 @@ private:
 
     /// Implement TrackedComponentRegistryBase.
     /// @{
+    void OnSceneSet(Scene* scene) override;
     void OnComponentAdded(TrackedComponentBase* baseComponent) override;
     void OnComponentRemoved(TrackedComponentBase* baseComponent) override;
     /// @}
@@ -169,8 +173,6 @@ private:
     void RenderEntityHeader(entt::entity entity);
     EntityComponentFactory* RenderCreateComponent(entt::entity entity);
     bool RenderExistingComponents(entt::entity entity);
-
-    void Update();
 
     ea::string entitiesContainerName_;
     WeakPtr<Node> entitiesContainer_;

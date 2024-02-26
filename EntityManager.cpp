@@ -3,10 +3,10 @@
 #include "EntityReference.h"
 
 #include <Urho3D/Core/Context.h>
-#include <Urho3D/Core/CoreEvents.h>
 #include <Urho3D/IO/Base64Archive.h>
 #include <Urho3D/IO/MemoryBuffer.h>
 #include <Urho3D/Scene/Scene.h>
+#include <Urho3D/Scene/SceneEvents.h>
 #include <Urho3D/SystemUI/Widgets.h>
 
 #include <IconFontCppHeaders/IconsFontAwesome6.h>
@@ -43,7 +43,6 @@ EntityManager::EntityManager(Context* context)
     : TrackedComponentRegistryBase(context, EntityReference::GetTypeStatic())
     , entitiesContainerName_(defaultContainerName)
 {
-    SubscribeToEvent(E_POSTUPDATE, &EntityManager::Update);
 }
 
 void EntityManager::RegisterObject(Context* context)
@@ -296,6 +295,16 @@ void EntityManager::CommitActions()
 
         ui_.pendingEditComponents_.clear();
     }
+}
+
+void EntityManager::OnSceneSet(Scene* scene)
+{
+    TrackedComponentRegistryBase::OnSceneSet(scene);
+
+    if (scene)
+        SubscribeToEvent(E_SCENEFORCEDPOSTUPDATE, &EntityManager::ForcedPostUpdate);
+    else
+        UnsubscribeFromEvent(E_SCENEFORCEDPOSTUPDATE);
 }
 
 void EntityManager::OnComponentAdded(TrackedComponentBase* baseComponent)
@@ -670,10 +679,10 @@ unsigned EntityManager::GetEntityIndex(entt::entity entity)
     return static_cast<unsigned>(entt::to_entity(entity));
 }
 
-void EntityManager::Update()
+void EntityManager::ForcedPostUpdate()
 {
     Synchronize();
-    OnManagerUpdated(this, registry_);
+    OnPostUpdateSynchronized(this, registry_);
 }
 
 } // namespace Urho3D
