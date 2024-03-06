@@ -194,6 +194,7 @@ bool EntityManager::RenderExistingComponents(entt::entity entity)
     bool changed = false;
     for (const auto& factory : componentFactories_)
     {
+        const IdScopeGuard guard{factory->GetName().c_str()};
         if (!factory->HasComponent(registry_, entity))
             continue;
 
