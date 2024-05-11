@@ -102,6 +102,7 @@ public:
 
     bool IsEntityMaterialized(entt::entity entity) const;
     EntityReference* GetEntityReference(entt::entity entity) const;
+    Node* GetEntityNode(entt::entity entity) const;
     void MaterializeEntity(entt::entity entity);
     void DematerializeEntity(entt::entity entity);
 

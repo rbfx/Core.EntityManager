@@ -386,6 +386,12 @@ EntityReference* EntityManager::GetEntityReference(entt::entity entity) const
     return data ? data->entityReference_.Get() : nullptr;
 }
 
+Node* EntityManager::GetEntityNode(entt::entity entity) const
+{
+    const EntityReference* reference = GetEntityReference(entity);
+    return reference ? reference->GetNode() : nullptr;
+}
+
 void EntityManager::EnsureEntitiesMaterialized()
 {
     for (const auto& [entity] : registry_.storage<entt::entity>().each())
