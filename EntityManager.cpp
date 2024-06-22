@@ -413,6 +413,8 @@ void EntityManager::MaterializeEntity(entt::entity entity)
         return;
     }
 
+    URHO3D_LOGTRACE("Entity {} is materializing", entity);
+
     Node* entityNode = entitiesContainer_->CreateChild("Entity");
     auto entityReference = MakeShared<EntityReference>(context_);
     entityReference->SetEntityInternal(entity);
@@ -433,6 +435,8 @@ void EntityManager::DematerializeEntity(entt::entity entity)
         URHO3D_LOGWARNING("Entity {} is already dematerialized", entity);
         return;
     }
+
+    URHO3D_LOGTRACE("Entity {} is dematerializing", entity);
 
     Synchronize();
 
