@@ -42,6 +42,9 @@ struct EntityMaterialized
 /// It is up to the user to clear this component when it's not needed anymore.
 struct EntityTransformDirty
 {
+    static constexpr unsigned Version = 1;
+    void SerializeInBlock(Archive& archive, unsigned version) {}
+    bool RenderInspector() { return false; }
 };
 
 /// Interface to manage EnTT components.
