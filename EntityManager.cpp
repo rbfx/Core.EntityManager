@@ -405,12 +405,12 @@ void EntityManager::EnsureEntitiesMaterialized()
     };
 }
 
-void EntityManager::MaterializeEntity(entt::entity entity)
+EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
 {
     if (IsEntityMaterialized(entity))
     {
         URHO3D_LOGWARNING("Entity {} is already materialized", entity);
-        return;
+        return nullptr;
     }
 
     URHO3D_LOGTRACE("Entity {} is materializing", entity);
@@ -426,6 +426,8 @@ void EntityManager::MaterializeEntity(entt::entity entity)
     OnEntityMaterialized(this, registry_, entity, entityReference);
 
     URHO3D_ASSERT(IsEntityMaterialized(entity));
+
+    return entityReference;
 }
 
 void EntityManager::DematerializeEntity(entt::entity entity)
