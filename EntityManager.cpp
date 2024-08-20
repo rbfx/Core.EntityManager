@@ -418,7 +418,9 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
     Node* entityNode = entitiesContainer_->CreateChild("Entity");
     auto entityReference = MakeShared<EntityReference>(context_);
     entityReference->SetEntityInternal(entity);
-    registry_.emplace<EntityMaterialized>(entity, WeakPtr<EntityReference>{entityReference});
+
+    URHO3D_ASSERT(!registry_.any_of<EntityMaterialized>(entity));
+    registry_.emplace_or_replace<EntityMaterialized>(entity, WeakPtr<EntityReference>{entityReference});
     registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{true});
 
     entityNode->AddComponent(entityReference, 0);
