@@ -340,10 +340,10 @@ void EntityManager::Synchronize()
     {
         // If registry has spawned this entity, everything is already configured.
         const entt::entity entityHint = entityReference->Entity();
-        if (GetEntityReference(entityHint) == entityReference)
+        if (EntityToReference(entityHint) == entityReference)
             continue;
 
-        if (registry_.valid(entityHint) && GetEntityReference(entityHint) == nullptr)
+        if (registry_.valid(entityHint) && EntityToReference(entityHint) == nullptr)
         {
             // If entity is known to the registry and is not yet connected, connect to it.
         }
@@ -380,16 +380,26 @@ bool EntityManager::IsEntityMaterialized(entt::entity entity) const
     return storage && storage->contains(entity);
 }
 
-EntityReference* EntityManager::GetEntityReference(entt::entity entity) const
+EntityReference* EntityManager::EntityToReference(entt::entity entity) const
 {
     const auto data = registry_.try_get<EntityMaterialized>(entity);
     return data ? data->entityReference_.Get() : nullptr;
 }
 
-Node* EntityManager::GetEntityNode(entt::entity entity) const
+Node* EntityManager::EntityToNode(entt::entity entity) const
 {
-    const EntityReference* reference = GetEntityReference(entity);
+    const EntityReference* reference = EntityToReference(entity);
     return reference ? reference->GetNode() : nullptr;
+}
+
+entt::entity EntityManager::NodeToEntity(Node* node) const
+{
+    if (node)
+    {
+        if (auto entityReference = node->GetComponent<EntityReference>())
+            return entityReference->Entity();
+    }
+    return entt::null;
 }
 
 void EntityManager::EnsureEntitiesMaterialized()

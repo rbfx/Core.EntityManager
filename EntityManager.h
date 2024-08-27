@@ -103,9 +103,11 @@ public:
     template <class T> void AddComponentType(const ea::string& name);
     EntityComponentFactory* FindComponentType(ea::string_view name) const;
 
+    EntityReference* EntityToReference(entt::entity entity) const;
+    Node* EntityToNode(entt::entity entity) const;
+    entt::entity NodeToEntity(Node* node) const;
+
     bool IsEntityMaterialized(entt::entity entity) const;
-    EntityReference* GetEntityReference(entt::entity entity) const;
-    Node* GetEntityNode(entt::entity entity) const;
     EntityReference* MaterializeEntity(entt::entity entity);
     void DematerializeEntity(entt::entity entity);
 
