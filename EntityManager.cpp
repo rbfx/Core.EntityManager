@@ -32,6 +32,18 @@ struct MaterializationStatus
 
 const ea::string defaultContainerName = "Entities";
 
+void FlattenEntityHierarchy(EntityReference* entityReference)
+{
+    Node* node = entityReference->GetNode();
+    Node* parentNode = node->GetParent();
+
+    // TODO: Ignore indirect children
+    static thread_local ea::vector<EntityReference*> childrenReferences;
+    node->GetComponents<EntityReference>(childrenReferences, true);
+    for (EntityReference* childReference : childrenReferences)
+        childReference->GetNode()->SetParent(parentNode);
+}
+
 } // namespace
 
 EntityComponentFactory::EntityComponentFactory(const ea::string& name)
@@ -311,22 +323,27 @@ void EntityManager::OnSceneSet(Scene* scene)
 void EntityManager::OnComponentAdded(TrackedComponentBase* baseComponent)
 {
     const auto entityReference = static_cast<EntityReference*>(baseComponent);
-    pendingEntitiesAdded_.emplace(WeakPtr<EntityReference>(entityReference));
-
     entityReference->GetNode()->AddListener(entityReference);
+
+    if (suppressComponentEvents_)
+        return;
+
+    pendingEntitiesAdded_.emplace(WeakPtr<EntityReference>(entityReference));
 }
 
 void EntityManager::OnComponentRemoved(TrackedComponentBase* baseComponent)
 {
+    if (suppressComponentEvents_)
+        return;
+
     const auto entityReference = static_cast<EntityReference*>(baseComponent);
-    if (pendingEntitiesAdded_.erase(WeakPtr<EntityReference>(entityReference)) == 0)
+    pendingEntitiesAdded_.erase(WeakPtr<EntityReference>(entityReference));
+
+    const entt::entity entity = entityReference->Entity();
+    if (entity != entt::null)
     {
-        const entt::entity entity = entityReference->Entity();
-        if (entity != entt::null)
-        {
-            URHO3D_ASSERT(registry_.valid(entity));
-            registry_.destroy(entity);
-        }
+        URHO3D_ASSERT(registry_.valid(entity));
+        registry_.destroy(entity);
     }
 }
 
@@ -376,8 +393,8 @@ void EntityManager::Synchronize()
 
 bool EntityManager::IsEntityMaterialized(entt::entity entity) const
 {
-    const auto storage = registry_.storage<EntityMaterialized>();
-    return storage && storage->contains(entity);
+    URHO3D_ASSERT(registry_.valid(entity));
+    return registry_.any_of<EntityMaterialized>(entity);
 }
 
 EntityReference* EntityManager::EntityToReference(entt::entity entity) const
@@ -429,12 +446,13 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
     auto entityReference = MakeShared<EntityReference>(context_);
     entityReference->SetEntityInternal(entity);
 
-    URHO3D_ASSERT(!registry_.any_of<EntityMaterialized>(entity));
     registry_.emplace_or_replace<EntityMaterialized>(entity, WeakPtr<EntityReference>{entityReference});
     registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{true});
 
+    suppressComponentEvents_ = true;
     entityNode->AddComponent(entityReference, 0);
-    Synchronize();
+    suppressComponentEvents_ = false;
+
     OnEntityMaterialized(this, registry_, entity, entityReference);
 
     URHO3D_ASSERT(IsEntityMaterialized(entity));
@@ -452,14 +470,16 @@ void EntityManager::DematerializeEntity(entt::entity entity)
 
     URHO3D_LOGTRACE("Entity {} is dematerializing", entity);
 
-    Synchronize();
-
     EntityReference* entityReference = registry_.get<EntityMaterialized>(entity).entityReference_;
     URHO3D_ASSERT(entityReference);
     OnEntityDematerialized(this, registry_, entity, entityReference);
 
+    FlattenEntityHierarchy(entityReference);
     entityReference->SetEntityInternal(entt::null);
+
+    suppressComponentEvents_ = true;
     entityReference->GetNode()->Remove();
+    suppressComponentEvents_ = false;
 
     registry_.remove<EntityMaterialized>(entity);
     registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{false});

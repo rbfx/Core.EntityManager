@@ -190,6 +190,7 @@ private:
     ea::unordered_set<WeakPtr<EntityReference>> pendingEntitiesAdded_;
     ea::vector<ea::pair<WeakPtr<EntityReference>, ByteVector>> pendingEntityDecodes_;
     bool synchronizationInProgress_{};
+    bool suppressComponentEvents_{};
 
     struct EditorUI
     {
