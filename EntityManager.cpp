@@ -39,7 +39,7 @@ void FlattenEntityHierarchy(EntityReference* entityReference)
 
     // TODO: Ignore indirect children
     static thread_local ea::vector<EntityReference*> childrenReferences;
-    node->GetComponents<EntityReference>(childrenReferences, true);
+    node->FindComponents<EntityReference>(childrenReferences);
     for (EntityReference* childReference : childrenReferences)
         childReference->GetNode()->SetParent(parentNode);
 }
