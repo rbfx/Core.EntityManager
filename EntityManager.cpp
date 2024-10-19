@@ -397,6 +397,11 @@ bool EntityManager::IsEntityMaterialized(entt::entity entity) const
     return registry_.any_of<EntityMaterialized>(entity);
 }
 
+bool EntityManager::IsEntityValid(entt::entity entity) const
+{
+    return entity != entt::null && registry_.valid(entity);
+}
+
 EntityReference* EntityManager::EntityToReference(entt::entity entity) const
 {
     const auto data = registry_.try_get<EntityMaterialized>(entity);
@@ -417,6 +422,16 @@ entt::entity EntityManager::NodeToEntity(Node* node) const
             return entityReference->Entity();
     }
     return entt::null;
+}
+
+Variant EntityManager::EntityToVariant(entt::entity entity)
+{
+    return Variant{static_cast<unsigned>(entity)};
+}
+
+entt::entity EntityManager::VariantToEntity(const Variant& variant)
+{
+    return static_cast<entt::entity>(variant.GetUInt());
 }
 
 void EntityManager::EnsureEntitiesMaterialized()
