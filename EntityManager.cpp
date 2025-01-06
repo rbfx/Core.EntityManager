@@ -449,10 +449,10 @@ void EntityManager::EnsureEntitiesMaterialized()
 
 EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
 {
-    if (IsEntityMaterialized(entity))
+    if (EntityReference* existingEntityReference = EntityToReference(entity))
     {
         URHO3D_LOGWARNING("Entity {} is already materialized", entity);
-        return nullptr;
+        return existingEntityReference;
     }
 
     URHO3D_LOGTRACE("Entity {} is materializing", entity);
