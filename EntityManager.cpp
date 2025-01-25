@@ -404,7 +404,7 @@ bool EntityManager::IsEntityValid(entt::entity entity) const
 
 EntityReference* EntityManager::EntityToReference(entt::entity entity) const
 {
-    const auto data = registry_.try_get<EntityMaterialized>(entity);
+    const auto data = entity != entt::null ? registry_.try_get<EntityMaterialized>(entity) : nullptr;
     return data ? data->entityReference_.Get() : nullptr;
 }
 
