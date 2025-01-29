@@ -148,6 +148,14 @@ public:
     /// @}
 
 protected:
+    /// Implement TrackedComponentRegistryBase.
+    /// @{
+    void OnComponentAdded(TrackedComponentBase* baseComponent) override;
+    void OnComponentRemoved(TrackedComponentBase* baseComponent) override;
+    void OnAddedToScene(Scene* scene) override;
+    void OnRemovedFromScene() override;
+    /// @}
+
     /// Return display label for the entity.
     virtual ea::string GetEntityLabel(entt::entity entity) const;
     /// Post-update synchronization. Executed even if the Scene is paused.
@@ -164,13 +172,6 @@ private:
             return EntityManager::GetEntityIndex(lhs) < EntityManager::GetEntityIndex(rhs);
         }
     };
-
-    /// Implement TrackedComponentRegistryBase.
-    /// @{
-    void OnSceneSet(Scene* scene) override;
-    void OnComponentAdded(TrackedComponentBase* baseComponent) override;
-    void OnComponentRemoved(TrackedComponentBase* baseComponent) override;
-    /// @}
 
     void EnsureComponentTypesSorted();
     void EnsureEntitiesMaterialized();

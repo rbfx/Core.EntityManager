@@ -310,16 +310,6 @@ void EntityManager::CommitActions()
     }
 }
 
-void EntityManager::OnSceneSet(Scene* scene)
-{
-    TrackedComponentRegistryBase::OnSceneSet(scene);
-
-    if (scene)
-        SubscribeToEvent(E_SCENEFORCEDPOSTUPDATE, &EntityManager::ForcedPostUpdate);
-    else
-        UnsubscribeFromEvent(E_SCENEFORCEDPOSTUPDATE);
-}
-
 void EntityManager::OnComponentAdded(TrackedComponentBase* baseComponent)
 {
     const auto entityReference = static_cast<EntityReference*>(baseComponent);
@@ -345,6 +335,16 @@ void EntityManager::OnComponentRemoved(TrackedComponentBase* baseComponent)
         URHO3D_ASSERT(registry_.valid(entity));
         registry_.destroy(entity);
     }
+}
+
+void EntityManager::OnAddedToScene(Scene* scene)
+{
+    SubscribeToEvent(scene, E_SCENEFORCEDPOSTUPDATE, &EntityManager::ForcedPostUpdate);
+}
+
+void EntityManager::OnRemovedFromScene()
+{
+    UnsubscribeFromEvent(E_SCENEFORCEDPOSTUPDATE);
 }
 
 void EntityManager::Synchronize()
