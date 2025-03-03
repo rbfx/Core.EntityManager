@@ -372,6 +372,7 @@ void EntityManager::Synchronize()
 
         const entt::entity entity = entityReference->Entity();
         registry_.emplace<EntityMaterialized>(entity, WeakPtr<EntityReference>{entityReference});
+        registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{true});
     }
     pendingEntitiesAdded_.clear();
 
@@ -440,9 +441,9 @@ void EntityManager::EnsureEntitiesMaterialized()
     {
         const auto* status = registry_.try_get<MaterializationStatus>(entity);
         const auto* data = registry_.try_get<EntityMaterialized>(entity);
-        if (!data && (!status || status->materialized_))
+        if (!data && status && status->materialized_)
             MaterializeEntity(entity);
-        else if (data && status && !status->materialized_)
+        else if (data && (!status || !status->materialized_))
             DematerializeEntity(entity);
     };
 }
