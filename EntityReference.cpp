@@ -27,7 +27,7 @@ EntityReference::~EntityReference()
 
 void EntityReference::RegisterObject(Context* context)
 {
-    context->RegisterFactory<EntityReference>(Category_User);
+    context->RegisterFactory<EntityReference>(Category_Plugin_EntityManager);
 
     URHO3D_ACCESSOR_ATTRIBUTE("Entity", GetEntityAttr, SetEntityAttr, unsigned, nullEntity, AM_DEFAULT | AM_NOEDIT);
 

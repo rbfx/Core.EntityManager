@@ -59,6 +59,8 @@ EntityManager::EntityManager(Context* context)
 
 void EntityManager::RegisterObject(Context* context)
 {
+    context->RegisterFactory<EntityManager>(Category_Plugin_EntityManager);
+
     URHO3D_ATTRIBUTE("Entities Container Node", ea::string, entitiesContainerName_, defaultContainerName, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Data", GetDataAttr, SetDataAttr, ByteVector, Variant::emptyBuffer, AM_TEMPORARY | AM_NOEDIT);
 
