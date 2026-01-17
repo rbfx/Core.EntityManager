@@ -52,6 +52,8 @@ class PLUGIN_CORE_ENTITYMANAGER_API EntityComponentFactory
 {
 public:
     EntityComponentFactory(const ea::string& name);
+    virtual ~EntityComponentFactory() = default;
+
     const ea::string& GetName() const { return name_; }
 
     virtual bool IsEmpty() const = 0;
