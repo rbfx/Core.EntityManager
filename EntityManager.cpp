@@ -80,7 +80,7 @@ void EntityManager::ApplyAttributes()
 
 void EntityManager::SerializeAuxiliaryData(Archive& archive)
 {
-    SerializeRegistry(archive);
+    SerializeRegistry(archive, registry_);
     if (archive.IsInput())
         registryDirty_ = true;
 }
@@ -130,7 +130,7 @@ void EntityManager::SetPlaceholderAttr(bool placeholder)
     CommitActions();
 }
 
-void EntityManager::EnsureComponentTypesSorted()
+void ComponentTypeManager::EnsureComponentTypesSorted()
 {
     if (!componentTypesSorted_)
     {
@@ -142,8 +142,6 @@ void EntityManager::EnsureComponentTypesSorted()
 
 bool EntityManager::RenderEntityInspector(entt::entity entity)
 {
-    EnsureComponentTypesSorted();
-
     bool changed = false;
     ui::Indent();
 
@@ -174,7 +172,9 @@ void EntityManager::RenderEntityHeader(entt::entity entity)
 
 EntityComponentFactory* EntityManager::RenderCreateComponent(entt::entity entity)
 {
-    ui::BeginDisabled(componentFactories_.empty());
+    const auto& componentFactories = GetComponentTypesSorted();
+
+    ui::BeginDisabled(componentFactories.empty());
     if (ui::Button(ICON_FA_SQUARE_PLUS " Add EnTT Component"))
         ui::OpenPopup("##AddEnTTComponent");
     ui::EndDisabled();
@@ -182,7 +182,7 @@ EntityComponentFactory* EntityManager::RenderCreateComponent(entt::entity entity
     EntityComponentFactory* result = nullptr;
     if (ui::BeginPopup("##AddEnTTComponent"))
     {
-        for (const auto& factory : componentFactories_)
+        for (const auto& factory : componentFactories)
         {
             const bool alreadyExists = factory->HasComponent(registry_, entity);
 
@@ -205,8 +205,10 @@ EntityComponentFactory* EntityManager::RenderCreateComponent(entt::entity entity
 
 bool EntityManager::RenderExistingComponents(entt::entity entity)
 {
+    const auto& componentFactories = GetComponentTypesSorted();
+
     bool changed = false;
-    for (const auto& factory : componentFactories_)
+    for (const auto& factory : componentFactories)
     {
         const IdScopeGuard guard{factory->GetName().c_str()};
         if (!factory->HasComponent(registry_, entity))
@@ -240,13 +242,13 @@ bool EntityManager::RenderExistingComponents(entt::entity entity)
     return changed;
 }
 
-void EntityManager::AddComponentType(ea::unique_ptr<EntityComponentFactory> factory)
+void ComponentTypeManager::AddComponentType(ea::unique_ptr<EntityComponentFactory> factory)
 {
     componentFactories_.push_back(ea::move(factory));
     componentTypesSorted_ = false;
 }
 
-EntityComponentFactory* EntityManager::FindComponentType(ea::string_view name) const
+EntityComponentFactory* ComponentTypeManager::FindComponentType(ea::string_view name) const
 {
     for (const auto& factory : componentFactories_)
     {
@@ -560,7 +562,7 @@ void EntityManager::SetDataAttr(const ByteVector& data)
 {
     MemoryBuffer buffer{data};
     BinaryInputArchive archive(context_, buffer);
-    SerializeRegistry(archive);
+    SerializeRegistry(archive, registry_);
     registryDirty_ = true;
 }
 
@@ -568,29 +570,29 @@ ByteVector EntityManager::GetDataAttr() const
 {
     VectorBuffer buffer;
     BinaryOutputArchive archive(context_, buffer);
-    const_cast<EntityManager*>(this)->SerializeRegistry(archive);
+    const_cast<EntityManager*>(this)->SerializeRegistry(archive, const_cast<EntityManager*>(this)->registry_);
     return buffer.GetBuffer();
 }
 
-void EntityManager::SerializeRegistry(Archive& archive)
+void ComponentTypeManager::SerializeRegistry(Archive& archive, entt::registry& registry)
 {
     ea::vector<EntityMaterialized> entityReferences;
 
     if (archive.IsInput())
     {
-        for (const auto& [_, data] : registry_.storage<EntityMaterialized>().each())
+        for (const auto& [_, data] : registry.storage<EntityMaterialized>().each())
             entityReferences.push_back(data);
 
-        registry_.clear();
+        registry.clear();
     }
 
     ConsumeArchiveException(
         [&]
     {
         const auto block = archive.OpenUnorderedBlock("registry");
-        SerializeEntities(archive);
-        SerializeComponents<MaterializationStatus>(archive, "materializationStatus", registry_, 0);
-        SerializeUserComponents(archive);
+        SerializeEntities(archive, registry);
+        SerializeComponents<MaterializationStatus>(archive, "materializationStatus", registry, 0);
+        SerializeUserComponents(archive, registry);
     });
 
     if (archive.IsInput())
@@ -598,15 +600,15 @@ void EntityManager::SerializeRegistry(Archive& archive)
         for (const auto& data : entityReferences)
         {
             const entt::entity entity = data.entityReference_->Entity();
-            if (registry_.valid(entity))
-                registry_.emplace<EntityMaterialized>(entity, data);
+            if (registry.valid(entity))
+                registry.emplace<EntityMaterialized>(entity, data);
         }
     }
 }
 
-void EntityManager::SerializeEntities(Archive& archive)
+void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& registry)
 {
-    const auto numEntities = static_cast<unsigned>(registry_.storage<entt::entity>().in_use());
+    const auto numEntities = static_cast<unsigned>(registry.storage<entt::entity>().in_use());
     const auto block = archive.OpenArrayBlock("entities", numEntities);
     if (archive.IsInput())
     {
@@ -614,7 +616,7 @@ void EntityManager::SerializeEntities(Archive& archive)
         {
             unsigned entityData = 0;
             archive.Serialize("entity", entityData);
-            (void)registry_.create(static_cast<entt::entity>(entityData));
+            (void)registry.create(static_cast<entt::entity>(entityData));
         }
     }
     else
@@ -623,7 +625,7 @@ void EntityManager::SerializeEntities(Archive& archive)
         auto& entities = entitiesBuffer;
 
         entities.clear();
-        for (const auto& [entity] : registry_.storage<entt::entity>().each())
+        for (const auto& [entity] : registry.storage<entt::entity>().each())
             entities.push_back(entity);
         ea::sort(entities.begin(), entities.end(), EntityIndexComparator{});
 
@@ -635,7 +637,7 @@ void EntityManager::SerializeEntities(Archive& archive)
     }
 }
 
-void EntityManager::SerializeUserComponents(Archive& archive)
+void ComponentTypeManager::SerializeUserComponents(Archive& archive, entt::registry& registry)
 {
     EnsureComponentTypesSorted();
 
@@ -654,7 +656,7 @@ void EntityManager::SerializeUserComponents(Archive& archive)
             SerializeValue(archive, "version", version);
 
             if (const auto factory = FindComponentType(typeName))
-                factory->SerializeComponents(archive, registry_, version);
+                factory->SerializeComponents(archive, registry, version);
         }
     }
     else
@@ -669,12 +671,12 @@ void EntityManager::SerializeUserComponents(Archive& archive)
             unsigned version = factory->GetVersion();
             SerializeValue(archive, "version", version);
 
-            factory->SerializeComponents(archive, registry_, version);
+            factory->SerializeComponents(archive, registry, version);
         }
     }
 }
 
-void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity)
+void ComponentTypeManager::SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity)
 {
     EnsureComponentTypesSorted();
 
@@ -690,10 +692,10 @@ void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::registry& 
             SerializeValue(archive, "_type", typeName);
 
             bool shouldExist{};
-            SerializeValue(archive, "_exists", shouldExist);
+            SerializeOptionalValue(archive, "_exists", shouldExist, true);
 
             unsigned version{};
-            SerializeValue(archive, "_version", version);
+            SerializeOptionalValue(archive, "_version", version);
 
             if (const auto factory = FindComponentType(typeName))
             {
@@ -732,12 +734,12 @@ void EntityManager::SerializeStandaloneEntity(Archive& archive, entt::registry& 
     }
 }
 
-unsigned EntityManager::GetEntityVersion(entt::entity entity)
+unsigned ComponentTypeManager::GetEntityVersion(entt::entity entity)
 {
     return entt::to_version(entity);
 }
 
-unsigned EntityManager::GetEntityIndex(entt::entity entity)
+unsigned ComponentTypeManager::GetEntityIndex(entt::entity entity)
 {
     return static_cast<unsigned>(entt::to_entity(entity));
 }
@@ -746,6 +748,12 @@ void EntityManager::ForcedPostUpdate()
 {
     Synchronize();
     OnPostUpdateSynchronized(this, registry_);
+}
+
+const ComponentTypeManager::EntityComponentFactoryVector& ComponentTypeManager::GetComponentTypesSorted()
+{
+    EnsureComponentTypesSorted();
+    return componentFactories_;
 }
 
 } // namespace Urho3D

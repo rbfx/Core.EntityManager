@@ -2,6 +2,7 @@
 
 #include "_Plugin.h"
 
+#include <Urho3D/Core/NonCopyable.h>
 #include <Urho3D/Core/Signal.h>
 #include <Urho3D/Scene/LogicComponent.h>
 #include <Urho3D/Scene/TrackedComponent.h>
@@ -71,9 +72,59 @@ private:
     ea::string name_;
 };
 
+/// Type-erased manager of component types for registry.
+class PLUGIN_CORE_ENTITYMANAGER_API ComponentTypeManager : public MovableNonCopyable
+{
+public:
+    using EntityComponentFactoryVector = ea::vector<ea::unique_ptr<EntityComponentFactory>>;
+
+    /// Register new EnTT component type.
+    /// It should be done as soon as possible, preferably in the constructor of derived class.
+    void AddComponentType(ea::unique_ptr<EntityComponentFactory> factory);
+    template <class T> void AddComponentType(const ea::string& name);
+    template <class T> void AddComponentType();
+    EntityComponentFactory* FindComponentType(ea::string_view name) const;
+
+    const EntityComponentFactoryVector& GetComponentTypes() const { return componentFactories_; }
+    const EntityComponentFactoryVector& GetComponentTypesSorted();
+
+    /// Serialize entire registry contents. All existing entities are overwritten.
+    void SerializeRegistry(Archive& archive, entt::registry& registry);
+    /// Serialize components of specific entity. Entity must exist. All existing components are overwritten.
+    void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity);
+
+    /// Utilities.
+    /// @{
+    static unsigned GetEntityVersion(entt::entity entity);
+    static unsigned GetEntityIndex(entt::entity entity);
+    template <class T>
+    static void SerializeComponents(Archive& archive, const char* name, entt::registry& registry, unsigned version);
+    /// @}
+
+private:
+    void EnsureComponentTypesSorted();
+    void SerializeEntities(Archive& archive, entt::registry& registry);
+    void SerializeUserComponents(Archive& archive, entt::registry& registry);
+
+    /// Comparator to sort entities by their index.
+    struct EntityIndexComparator
+    {
+        bool operator()(entt::entity lhs, entt::entity rhs) const
+        {
+            return ComponentTypeManager::GetEntityIndex(lhs) < ComponentTypeManager::GetEntityIndex(rhs);
+        }
+    };
+
+private:
+    EntityComponentFactoryVector componentFactories_;
+    bool componentTypesSorted_{};
+};
+
 /// Subsystem that stores and manages EnTT entities.
 /// Don't remove this component from the scene if you have any entities!
-class PLUGIN_CORE_ENTITYMANAGER_API EntityManager : public TrackedComponentRegistryBase
+class PLUGIN_CORE_ENTITYMANAGER_API EntityManager
+    : public TrackedComponentRegistryBase
+    , public ComponentTypeManager
 {
     URHO3D_OBJECT(EntityManager, TrackedComponentRegistryBase);
 
@@ -98,12 +149,6 @@ public:
 
     /// Synchronize pending EntityReference additions with the registry.
     void Synchronize();
-
-    /// Register new EnTT component type.
-    /// It should be done as soon as possible, preferably in the constructor of derived class.
-    void AddComponentType(ea::unique_ptr<EntityComponentFactory> factory);
-    template <class T> void AddComponentType(const ea::string& name);
-    EntityComponentFactory* FindComponentType(ea::string_view name) const;
 
     bool IsEntityValid(entt::entity entity) const;
     EntityReference* EntityToReference(entt::entity entity) const;
@@ -141,14 +186,6 @@ public:
     void SetPlaceholderAttr(bool placeholder);
     /// @}
 
-    /// Utilities.
-    /// @{
-    static unsigned GetEntityVersion(entt::entity entity);
-    static unsigned GetEntityIndex(entt::entity entity);
-    template <class T>
-    static void SerializeComponents(Archive& archive, const char* name, entt::registry& registry, unsigned version);
-    /// @}
-
 protected:
     /// Implement TrackedComponentRegistryBase.
     /// @{
@@ -166,22 +203,7 @@ protected:
     entt::registry registry_;
 
 private:
-    /// Comparator to sort entities by their index.
-    struct EntityIndexComparator
-    {
-        bool operator()(entt::entity lhs, entt::entity rhs) const
-        {
-            return EntityManager::GetEntityIndex(lhs) < EntityManager::GetEntityIndex(rhs);
-        }
-    };
-
-    void EnsureComponentTypesSorted();
     void EnsureEntitiesMaterialized();
-
-    void SerializeRegistry(Archive& archive);
-    void SerializeEntities(Archive& archive);
-    void SerializeUserComponents(Archive& archive);
-    void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity);
 
     void RenderEntityHeader(entt::entity entity);
     EntityComponentFactory* RenderCreateComponent(entt::entity entity);
@@ -189,9 +211,6 @@ private:
 
     ea::string entitiesContainerName_;
     WeakPtr<Node> entitiesContainer_;
-
-    ea::vector<ea::unique_ptr<EntityComponentFactory>> componentFactories_;
-    bool componentTypesSorted_{};
 
     bool registryDirty_{};
     ea::unordered_set<WeakPtr<EntityReference>> pendingEntitiesAdded_;
@@ -245,13 +264,19 @@ private:
 namespace Urho3D
 {
 
-template <class T> void EntityManager::AddComponentType(const ea::string& name)
+template <class T> void ComponentTypeManager::AddComponentType(const ea::string& name)
 {
     AddComponentType(ea::make_unique<DefaultEntityComponentFactory<T>>(name));
 }
 
+template <class T> void ComponentTypeManager::AddComponentType()
+{
+    AddComponentType<T>(T::TypeName);
+}
+
 template <class T>
-void EntityManager::SerializeComponents(Archive& archive, const char* name, entt::registry& registry, unsigned version)
+void ComponentTypeManager::SerializeComponents(
+    Archive& archive, const char* name, entt::registry& registry, unsigned version)
 {
     auto& storage = registry.storage<T>();
     const auto numComponents = static_cast<unsigned>(storage.size());
