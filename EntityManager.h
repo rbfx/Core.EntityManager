@@ -4,6 +4,7 @@
 
 #include <Urho3D/Core/NonCopyable.h>
 #include <Urho3D/Core/Signal.h>
+#include <Urho3D/Core/TypeTrait.h>
 #include <Urho3D/Scene/LogicComponent.h>
 #include <Urho3D/Scene/TrackedComponent.h>
 
@@ -227,6 +228,9 @@ private:
     } ui_;
 };
 
+/// Check whether component has "RenderInspector" member function.
+URHO3D_TYPE_TRAIT(HasRenderInspector, !!std::declval<T&>().RenderInspector());
+
 /// Default implementation of EntityComponentFactory.
 /// T is expected to have certain functions and static members.
 template <class T> class DefaultEntityComponentFactory : public EntityComponentFactory
@@ -364,7 +368,7 @@ void DefaultEntityComponentFactory<T>::SerializeComponents(Archive& archive, ent
 
 template <class T> bool DefaultEntityComponentFactory<T>::RenderUI(entt::registry& registry, entt::entity entity)
 {
-    if constexpr (!std::is_empty_v<T>)
+    if constexpr (!std::is_empty_v<T> && HasRenderInspector<T>::value)
     {
         T& component = registry.get<T>(entity);
         const T backup = component;
