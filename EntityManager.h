@@ -60,12 +60,19 @@ public:
 
     virtual bool IsEmpty() const = 0;
     virtual unsigned GetVersion() const = 0;
+
     virtual bool HasComponent(entt::registry& registry, entt::entity entity) = 0;
     virtual void CreateComponent(entt::registry& registry, entt::entity entity) = 0;
     virtual void DestroyComponent(entt::registry& registry, entt::entity entity) = 0;
+    virtual void CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) = 0;
+    virtual void MoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) = 0;
+
     virtual void SerializeComponent(
         Archive& archive, entt::registry& registry, entt::entity entity, unsigned version) = 0;
     virtual void SerializeComponents(Archive& archive, entt::registry& registry, unsigned version) = 0;
+
     virtual bool RenderUI(entt::registry& registry, entt::entity entity) = 0;
     virtual void CommitActions(entt::registry& registry) = 0;
 
@@ -89,10 +96,15 @@ public:
     const EntityComponentFactoryVector& GetComponentTypes() const { return componentFactories_; }
     const EntityComponentFactoryVector& GetComponentTypesSorted();
 
+    /// Ensure order of factories for consistent output.
+    void EnsureComponentTypesSorted();
     /// Serialize entire registry contents. All existing entities are overwritten.
-    void SerializeRegistry(Archive& archive, entt::registry& registry);
+    void SerializeRegistry(Archive& archive, entt::registry& registry) const;
     /// Serialize components of specific entity. Entity must exist. All existing components are overwritten.
-    void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity);
+    void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity) const;
+    /// Move entities from registry to registry.
+    void MoveEntities(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const;
 
     /// Utilities.
     /// @{
@@ -103,9 +115,8 @@ public:
     /// @}
 
 private:
-    void EnsureComponentTypesSorted();
-    void SerializeEntities(Archive& archive, entt::registry& registry);
-    void SerializeUserComponents(Archive& archive, entt::registry& registry);
+    void SerializeEntities(Archive& archive, entt::registry& registry) const;
+    void SerializeUserComponents(Archive& archive, entt::registry& registry) const;
 
     /// Comparator to sort entities by their index.
     struct EntityIndexComparator
@@ -246,11 +257,22 @@ public:
     bool HasComponent(entt::registry& registry, entt::entity entity) override;
     void CreateComponent(entt::registry& registry, entt::entity entity) override;
     void DestroyComponent(entt::registry& registry, entt::entity entity) override;
+    void CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) override;
+    void MoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) override;
+
     void SerializeComponent(Archive& archive, entt::registry& registry, entt::entity entity, unsigned version) override;
     void SerializeComponents(Archive& archive, entt::registry& registry, unsigned version) override;
+
     bool RenderUI(entt::registry& registry, entt::entity entity) override;
     void CommitActions(entt::registry& registry) override;
     /// @}
+
+private:
+    template <bool IsMove>
+    void CopyOrMoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities);
 
 private:
     ea::string name_;
@@ -398,6 +420,49 @@ template <class T> void DefaultEntityComponentFactory<T>::CommitActions(entt::re
         registry.replace<T>(action.entity_, action.newValue_);
     }
     pendingEditActions_.clear();
+}
+
+template <class T>
+void DefaultEntityComponentFactory<T>::CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+    const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities)
+{
+    CopyOrMoveComponents<false>(fromRegistry, toRegistry, fromEntities, toEntities);
+}
+
+template <class T>
+void DefaultEntityComponentFactory<T>::MoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+    const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities)
+{
+    CopyOrMoveComponents<true>(fromRegistry, toRegistry, fromEntities, toEntities);
+}
+
+template <class T>
+template <bool IsMove>
+void DefaultEntityComponentFactory<T>::CopyOrMoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+    const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities)
+{
+    URHO3D_ASSERT(fromEntities.size() == toEntities.size());
+    for (unsigned i = 0; i < fromEntities.size(); ++i)
+    {
+        const entt::entity fromEntity = fromEntities[i];
+        const entt::entity toEntity = toEntities[i];
+
+        auto& storage = fromRegistry.storage<T>();
+        if (!storage.contains(fromEntity))
+            continue;
+
+        if constexpr (!std::is_empty_v<T>)
+        {
+            if constexpr (IsMove)
+                toRegistry.emplace_or_replace<T>(toEntity, ea::move(fromRegistry.get<T>(fromEntity)));
+            else
+                toRegistry.emplace_or_replace<T>(toEntity, fromRegistry.get<T>(fromEntity));
+        }
+        else
+        {
+            toRegistry.emplace_or_replace<T>(toEntity);
+        }
+    }
 }
 
 } // namespace Urho3D

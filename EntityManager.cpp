@@ -80,6 +80,7 @@ void EntityManager::ApplyAttributes()
 
 void EntityManager::SerializeAuxiliaryData(Archive& archive)
 {
+    EnsureComponentTypesSorted();
     SerializeRegistry(archive, registry_);
     if (archive.IsInput())
         registryDirty_ = true;
@@ -562,6 +563,7 @@ void EntityManager::SetDataAttr(const ByteVector& data)
 {
     MemoryBuffer buffer{data};
     BinaryInputArchive archive(context_, buffer);
+    EnsureComponentTypesSorted();
     SerializeRegistry(archive, registry_);
     registryDirty_ = true;
 }
@@ -570,11 +572,12 @@ ByteVector EntityManager::GetDataAttr() const
 {
     VectorBuffer buffer;
     BinaryOutputArchive archive(context_, buffer);
+    const_cast<EntityManager*>(this)->EnsureComponentTypesSorted();
     const_cast<EntityManager*>(this)->SerializeRegistry(archive, const_cast<EntityManager*>(this)->registry_);
     return buffer.GetBuffer();
 }
 
-void ComponentTypeManager::SerializeRegistry(Archive& archive, entt::registry& registry)
+void ComponentTypeManager::SerializeRegistry(Archive& archive, entt::registry& registry) const
 {
     ea::vector<EntityMaterialized> entityReferences;
 
@@ -606,7 +609,7 @@ void ComponentTypeManager::SerializeRegistry(Archive& archive, entt::registry& r
     }
 }
 
-void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& registry)
+void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& registry) const
 {
     const auto numEntities = static_cast<unsigned>(registry.storage<entt::entity>().in_use());
     const auto block = archive.OpenArrayBlock("entities", numEntities);
@@ -637,10 +640,8 @@ void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& r
     }
 }
 
-void ComponentTypeManager::SerializeUserComponents(Archive& archive, entt::registry& registry)
+void ComponentTypeManager::SerializeUserComponents(Archive& archive, entt::registry& registry) const
 {
-    EnsureComponentTypesSorted();
-
     const auto storagesBlock = archive.OpenArrayBlock("storages", componentFactories_.size());
 
     if (archive.IsInput())
@@ -676,10 +677,9 @@ void ComponentTypeManager::SerializeUserComponents(Archive& archive, entt::regis
     }
 }
 
-void ComponentTypeManager::SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity)
+void ComponentTypeManager::SerializeStandaloneEntity(
+    Archive& archive, entt::registry& registry, entt::entity entity) const
 {
-    EnsureComponentTypesSorted();
-
     const auto storagesBlock = archive.OpenArrayBlock("components", componentFactories_.size());
 
     if (archive.IsInput())
@@ -732,6 +732,19 @@ void ComponentTypeManager::SerializeStandaloneEntity(Archive& archive, entt::reg
                 factory->SerializeComponent(archive, registry, entity, version);
         }
     }
+}
+
+void ComponentTypeManager::MoveEntities(entt::registry& fromRegistry, entt::registry& toRegistry,
+    const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const
+{
+    toEntities.clear();
+    for (const entt::entity sourceEntity : fromEntities)
+        toEntities.push_back(toRegistry.create());
+
+    for (const auto& factory : componentFactories_)
+        factory->MoveComponents(fromRegistry, toRegistry, fromEntities, toEntities);
+
+    fromRegistry.destroy(fromEntities.begin(), fromEntities.end());
 }
 
 unsigned ComponentTypeManager::GetEntityVersion(entt::entity entity)
