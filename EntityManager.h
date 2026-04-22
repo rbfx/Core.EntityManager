@@ -211,6 +211,10 @@ protected:
     virtual ea::string GetEntityLabel(entt::entity entity) const;
     /// Post-update synchronization. Executed even if the Scene is paused.
     virtual void ForcedPostUpdate();
+    /// Begin update from Inspector.
+    virtual void BeginInspectorUpdate() {}
+    /// End update from Inspector.
+    virtual void EndInspectorUpdate() {}
 
     entt::registry registry_;
 

@@ -261,6 +261,13 @@ EntityComponentFactory* ComponentTypeManager::FindComponentType(ea::string_view 
 
 void EntityManager::CommitActions()
 {
+    const bool isQueueEmpty = ui_.pendingMaterializations_.empty() && ui_.pendingCreateComponents_.empty()
+        && ui_.pendingDestroyComponents_.empty() && ui_.pendingEditComponents_.empty();
+    if (isQueueEmpty)
+        return;
+
+    BeginInspectorUpdate();
+
     if (!ui_.pendingMaterializations_.empty())
     {
         for (const auto& [entity, isMaterialized] : ui_.pendingMaterializations_)
@@ -313,6 +320,8 @@ void EntityManager::CommitActions()
 
         ui_.pendingEditComponents_.clear();
     }
+
+    EndInspectorUpdate();
 }
 
 void EntityManager::OnComponentAdded(TrackedComponentBase* baseComponent)
