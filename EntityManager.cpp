@@ -63,6 +63,7 @@ void EntityManager::RegisterObject(Context* context)
 
     URHO3D_ATTRIBUTE("Entities Container Node", ea::string, entitiesContainerName_, defaultContainerName, AM_DEFAULT);
     URHO3D_ATTRIBUTE_EX("Use Temporary Nodes", bool, useTemporaryNodes_, MarkTemporaryStatusDirty, false, AM_DEFAULT);
+    URHO3D_ATTRIBUTE("Restore Nodes On Load", bool, restoreNodesOnLoad_, true, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Data", GetDataAttr, SetDataAttr, ByteVector, Variant::emptyBuffer, AM_TEMPORARY | AM_NOEDIT);
 
     // Artificial attribute that is used to attach custom inspector UI.
@@ -130,6 +131,12 @@ bool EntityManager::RenderManagerInspector()
 void EntityManager::SetPlaceholderAttr(bool placeholder)
 {
     CommitActions();
+}
+
+void EntityManager::SetUseTemporaryNodes(bool value)
+{
+    useTemporaryNodes_ = value;
+    temporaryStatusDirty_ = true;
 }
 
 void ComponentTypeManager::EnsureComponentTypesSorted()
@@ -403,6 +410,10 @@ void EntityManager::Synchronize()
     if (registryDirty_)
     {
         registryDirty_ = false;
+
+        if (!restoreNodesOnLoad_)
+            registry_.clear<MaterializationStatus>();
+
         EnsureEntitiesMaterialized();
     }
 

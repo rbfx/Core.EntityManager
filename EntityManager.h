@@ -196,6 +196,15 @@ public:
     ByteVector GetDataAttr() const;
     bool GetPlaceholderAttr() const { return false; }
     void SetPlaceholderAttr(bool placeholder);
+
+    const ea::string& GetEntitiesContainerName() const { return entitiesContainerName_; }
+    void SetEntitiesContainerName(const ea::string& value) { entitiesContainerName_ = value; }
+
+    bool GetUseTemporaryNodes() const { return useTemporaryNodes_; }
+    void SetUseTemporaryNodes(bool value);
+
+    bool GetRestoreNodesOnLoad() const { return restoreNodesOnLoad_; }
+    void SetRestoreNodesOnLoad(bool value) { restoreNodesOnLoad_ = value; }
     /// @}
 
 protected:
@@ -228,6 +237,7 @@ private:
 
     ea::string entitiesContainerName_;
     bool useTemporaryNodes_{};
+    bool restoreNodesOnLoad_{true};
     WeakPtr<Node> entitiesContainer_;
 
     bool registryDirty_{};
