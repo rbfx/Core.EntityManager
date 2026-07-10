@@ -782,6 +782,17 @@ void ComponentTypeManager::MoveEntities(entt::registry& fromRegistry, entt::regi
     fromRegistry.destroy(fromEntities.begin(), fromEntities.end());
 }
 
+void ComponentTypeManager::CopyEntities(const entt::registry& fromRegistry, entt::registry& toRegistry,
+    const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const
+{
+    toEntities.clear();
+    for (const entt::entity sourceEntity : fromEntities)
+        toEntities.push_back(toRegistry.create());
+
+    for (const auto& factory : componentFactories_)
+        factory->CopyComponents(fromRegistry, toRegistry, fromEntities, toEntities);
+}
+
 unsigned ComponentTypeManager::GetEntityVersion(entt::entity entity)
 {
     return entt::to_version(entity);

@@ -64,7 +64,7 @@ public:
     virtual bool HasComponent(entt::registry& registry, entt::entity entity) = 0;
     virtual void CreateComponent(entt::registry& registry, entt::entity entity) = 0;
     virtual void DestroyComponent(entt::registry& registry, entt::entity entity) = 0;
-    virtual void CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+    virtual void CopyComponents(const entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) = 0;
     virtual void MoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) = 0;
@@ -104,6 +104,9 @@ public:
     void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity) const;
     /// Move entities from registry to registry.
     void MoveEntities(entt::registry& fromRegistry, entt::registry& toRegistry,
+        const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const;
+    /// Copy entities from registry to registry.
+    void CopyEntities(const entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const;
 
     /// Utilities.
@@ -274,7 +277,7 @@ public:
     bool HasComponent(entt::registry& registry, entt::entity entity) override;
     void CreateComponent(entt::registry& registry, entt::entity entity) override;
     void DestroyComponent(entt::registry& registry, entt::entity entity) override;
-    void CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+    void CopyComponents(const entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) override;
     void MoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities) override;
@@ -288,8 +291,9 @@ public:
 
 private:
     template <bool IsMove>
-    void CopyOrMoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
-        const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities);
+    void CopyOrMoveComponents(ea::conditional_t<IsMove, entt::registry, const entt::registry>& fromRegistry,
+        entt::registry& toRegistry, const ea::vector<entt::entity>& fromEntities,
+        const ea::vector<entt::entity>& toEntities);
 
 private:
     ea::string name_;
@@ -440,7 +444,7 @@ template <class T> void DefaultEntityComponentFactory<T>::CommitActions(entt::re
 }
 
 template <class T>
-void DefaultEntityComponentFactory<T>::CopyComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+void DefaultEntityComponentFactory<T>::CopyComponents(const entt::registry& fromRegistry, entt::registry& toRegistry,
     const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities)
 {
     CopyOrMoveComponents<false>(fromRegistry, toRegistry, fromEntities, toEntities);
@@ -455,7 +459,8 @@ void DefaultEntityComponentFactory<T>::MoveComponents(entt::registry& fromRegist
 
 template <class T>
 template <bool IsMove>
-void DefaultEntityComponentFactory<T>::CopyOrMoveComponents(entt::registry& fromRegistry, entt::registry& toRegistry,
+void DefaultEntityComponentFactory<T>::CopyOrMoveComponents(
+    ea::conditional_t<IsMove, entt::registry, const entt::registry>& fromRegistry, entt::registry& toRegistry,
     const ea::vector<entt::entity>& fromEntities, const ea::vector<entt::entity>& toEntities)
 {
     URHO3D_ASSERT(fromEntities.size() == toEntities.size());
@@ -464,16 +469,15 @@ void DefaultEntityComponentFactory<T>::CopyOrMoveComponents(entt::registry& from
         const entt::entity fromEntity = fromEntities[i];
         const entt::entity toEntity = toEntities[i];
 
-        auto& storage = fromRegistry.storage<T>();
-        if (!storage.contains(fromEntity))
+        if (!fromRegistry.template any_of<T>(fromEntity))
             continue;
 
         if constexpr (!std::is_empty_v<T>)
         {
             if constexpr (IsMove)
-                toRegistry.emplace_or_replace<T>(toEntity, ea::move(fromRegistry.get<T>(fromEntity)));
+                toRegistry.emplace_or_replace<T>(toEntity, ea::move(fromRegistry.template get<T>(fromEntity)));
             else
-                toRegistry.emplace_or_replace<T>(toEntity, fromRegistry.get<T>(fromEntity));
+                toRegistry.emplace_or_replace<T>(toEntity, fromRegistry.template get<T>(fromEntity));
         }
         else
         {
