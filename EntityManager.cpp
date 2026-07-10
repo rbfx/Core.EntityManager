@@ -62,6 +62,7 @@ void EntityManager::RegisterObject(Context* context)
     context->RegisterFactory<EntityManager>(Category_Plugin_EntityManager);
 
     URHO3D_ATTRIBUTE("Entities Container Node", ea::string, entitiesContainerName_, defaultContainerName, AM_DEFAULT);
+    URHO3D_ATTRIBUTE_EX("Use Temporary Nodes", bool, useTemporaryNodes_, MarkTemporaryStatusDirty, false, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Data", GetDataAttr, SetDataAttr, ByteVector, Variant::emptyBuffer, AM_TEMPORARY | AM_NOEDIT);
 
     // Artificial attribute that is used to attach custom inspector UI.
@@ -387,6 +388,8 @@ void EntityManager::Synchronize()
         const entt::entity entity = entityReference->Entity();
         registry_.emplace<EntityMaterialized>(entity, WeakPtr<EntityReference>{entityReference});
         registry_.emplace_or_replace<MaterializationStatus>(entity, MaterializationStatus{true});
+
+        entityReference->GetNode()->SetTemporary(useTemporaryNodes_);
     }
     pendingEntitiesAdded_.clear();
 
@@ -401,6 +404,16 @@ void EntityManager::Synchronize()
     {
         registryDirty_ = false;
         EnsureEntitiesMaterialized();
+    }
+
+    if (temporaryStatusDirty_)
+    {
+        temporaryStatusDirty_ = false;
+        for (const auto& [entity, entityMaterialized] : registry_.view<EntityMaterialized>().each())
+        {
+            Node* node = entityMaterialized.entityReference_->GetNode();
+            node->SetTemporary(useTemporaryNodes_);
+        }
     }
 
     synchronizationInProgress_ = false;
@@ -473,6 +486,8 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
     URHO3D_LOGTRACE("Entity {} is materializing", entity);
 
     Node* entityNode = entitiesContainer_->CreateChild("Entity");
+    entityNode->SetTemporary(useTemporaryNodes_);
+
     auto entityReference = MakeShared<EntityReference>(context_);
     entityReference->SetEntityInternal(entity);
 

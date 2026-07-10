@@ -220,15 +220,18 @@ protected:
 
 private:
     void EnsureEntitiesMaterialized();
+    void MarkTemporaryStatusDirty() { temporaryStatusDirty_ = true; }
 
     void RenderEntityHeader(entt::entity entity);
     EntityComponentFactory* RenderCreateComponent(entt::entity entity);
     bool RenderExistingComponents(entt::entity entity);
 
     ea::string entitiesContainerName_;
+    bool useTemporaryNodes_{};
     WeakPtr<Node> entitiesContainer_;
 
     bool registryDirty_{};
+    bool temporaryStatusDirty_{};
     ea::unordered_set<WeakPtr<EntityReference>> pendingEntitiesAdded_;
     ea::vector<ea::pair<WeakPtr<EntityReference>, ByteVector>> pendingEntityDecodes_;
     bool synchronizationInProgress_{};
