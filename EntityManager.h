@@ -72,6 +72,8 @@ public:
     virtual void SerializeComponent(
         Archive& archive, entt::registry& registry, entt::entity entity, unsigned version) = 0;
     virtual void SerializeComponents(Archive& archive, entt::registry& registry, unsigned version) = 0;
+    virtual void SaveComponentsPartial(
+        Archive& archive, entt::registry& registry, unsigned version, const ea::vector<entt::entity>& entities) = 0;
 
     virtual bool RenderUI(entt::registry& registry, entt::entity entity) = 0;
     virtual void CommitActions(entt::registry& registry) = 0;
@@ -100,12 +102,15 @@ public:
     void EnsureComponentTypesSorted();
     /// Serialize entire registry contents. All existing entities are overwritten.
     void SerializeRegistry(Archive& archive, entt::registry& registry) const;
+    /// Serialize partial registry contents. Only save is supported. Load is compatible with SerializeRegistry.
+    void SaveRegistryPartial(
+        Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const;
     /// Serialize components of specific entity. Entity must exist. All existing components are overwritten.
     void SerializeStandaloneEntity(Archive& archive, entt::registry& registry, entt::entity entity) const;
-    /// Move entities from registry to registry.
+    /// Move entities from registry to registry. Materialization status is not copied.
     void MoveEntities(entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const;
-    /// Copy entities from registry to registry.
+    /// Copy entities from registry to registry. Materialization status is not copied.
     void CopyEntities(const entt::registry& fromRegistry, entt::registry& toRegistry,
         const ea::vector<entt::entity>& fromEntities, ea::vector<entt::entity>& toEntities) const;
 
@@ -115,11 +120,19 @@ public:
     static unsigned GetEntityIndex(entt::entity entity);
     template <class T>
     static void SerializeComponents(Archive& archive, const char* name, entt::registry& registry, unsigned version);
+    template <class T>
+    static void SaveComponentsPartial(Archive& archive, const char* name, entt::registry& registry, unsigned version,
+        const ea::vector<entt::entity>& entities);
     /// @}
 
 private:
     void SerializeEntities(Archive& archive, entt::registry& registry) const;
     void SerializeUserComponents(Archive& archive, entt::registry& registry) const;
+
+    void SaveEntitiesPartial(
+        Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const;
+    void SaveUserComponentsPartial(
+        Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const;
 
     /// Comparator to sort entities by their index.
     struct EntityIndexComparator
@@ -284,6 +297,8 @@ public:
 
     void SerializeComponent(Archive& archive, entt::registry& registry, entt::entity entity, unsigned version) override;
     void SerializeComponents(Archive& archive, entt::registry& registry, unsigned version) override;
+    void SaveComponentsPartial(Archive& archive, entt::registry& registry, unsigned version,
+        const ea::vector<entt::entity>& entities) override;
 
     bool RenderUI(entt::registry& registry, entt::entity entity) override;
     void CommitActions(entt::registry& registry) override;
@@ -375,6 +390,40 @@ void ComponentTypeManager::SerializeComponents(
     }
 }
 
+template <class T>
+void ComponentTypeManager::SaveComponentsPartial(Archive& archive, const char* name, entt::registry& registry,
+    unsigned version, const ea::vector<entt::entity>& entities)
+{
+    URHO3D_ASSERT(!archive.IsInput());
+
+    // Collect entities with component T
+    static thread_local ea::vector<entt::entity> filteredEntitiesBuffer;
+    auto& filteredEntities = filteredEntitiesBuffer;
+
+    filteredEntities.clear();
+    for (const entt::entity entity : entities)
+    {
+        if (registry.valid(entity) && registry.any_of<T>(entity))
+            filteredEntities.push_back(entity);
+    }
+
+    // Serialize components normally
+    const auto block = archive.OpenArrayBlock(name, filteredEntities.size());
+    for (const entt::entity entity : filteredEntities)
+    {
+        const auto elementBlock = archive.OpenUnorderedBlock("component");
+
+        auto entityData = static_cast<unsigned>(entity);
+        archive.Serialize("_entity", entityData);
+
+        if constexpr (!std::is_empty_v<T>)
+        {
+            auto& component = registry.get<T>(entity);
+            component.SerializeInBlock(archive, version);
+        }
+    };
+}
+
 template <class T> bool DefaultEntityComponentFactory<T>::HasComponent(entt::registry& registry, entt::entity entity)
 {
     const auto& storage = registry.storage<T>();
@@ -407,6 +456,13 @@ template <class T>
 void DefaultEntityComponentFactory<T>::SerializeComponents(Archive& archive, entt::registry& registry, unsigned version)
 {
     EntityManager::SerializeComponents<T>(archive, "components", registry, version);
+}
+
+template <class T>
+void DefaultEntityComponentFactory<T>::SaveComponentsPartial(
+    Archive& archive, entt::registry& registry, unsigned version, const ea::vector<entt::entity>& entities)
+{
+    EntityManager::SaveComponentsPartial<T>(archive, "components", registry, version, entities);
 }
 
 template <class T> bool DefaultEntityComponentFactory<T>::RenderUI(entt::registry& registry, entt::entity entity)

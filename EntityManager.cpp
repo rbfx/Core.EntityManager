@@ -644,6 +644,21 @@ void ComponentTypeManager::SerializeRegistry(Archive& archive, entt::registry& r
     }
 }
 
+void ComponentTypeManager::SaveRegistryPartial(
+    Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const
+{
+    URHO3D_ASSERT(!archive.IsInput());
+
+    ConsumeArchiveException(
+        [&]
+    {
+        const auto block = archive.OpenUnorderedBlock("registry");
+        SaveEntitiesPartial(archive, registry, entities);
+        SaveComponentsPartial<MaterializationStatus>(archive, "materializationStatus", registry, 0, entities);
+        SaveUserComponentsPartial(archive, registry, entities);
+    });
+}
+
 void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& registry) const
 {
     const auto numEntities = static_cast<unsigned>(registry.storage<entt::entity>().in_use());
@@ -654,7 +669,10 @@ void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& r
         {
             unsigned entityData = 0;
             archive.Serialize("entity", entityData);
-            (void)registry.create(static_cast<entt::entity>(entityData));
+
+            const entt::entity entityHint = static_cast<entt::entity>(entityData);
+            const entt::entity entity = registry.create(entityHint);
+            URHO3D_ASSERT(entityHint == entity);
         }
     }
     else
@@ -709,6 +727,45 @@ void ComponentTypeManager::SerializeUserComponents(Archive& archive, entt::regis
 
             factory->SerializeComponents(archive, registry, version);
         }
+    }
+}
+
+void ComponentTypeManager::SaveEntitiesPartial(
+    Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const
+{
+    URHO3D_ASSERT(!archive.IsInput());
+
+    const auto block = archive.OpenArrayBlock("entities", entities.size());
+    for (entt::entity entity : entities)
+    {
+        if (!registry.valid(entity))
+        {
+            URHO3D_ASSERTLOG(false, "Entity {} is invalid", entity);
+            entity = entt::null;
+        }
+
+        auto entityData = static_cast<unsigned>(entity);
+        archive.Serialize("entity", entityData);
+    };
+}
+
+void ComponentTypeManager::SaveUserComponentsPartial(
+    Archive& archive, entt::registry& registry, const ea::vector<entt::entity>& entities) const
+{
+    URHO3D_ASSERT(!archive.IsInput());
+
+    const auto storagesBlock = archive.OpenArrayBlock("storages", componentFactories_.size());
+    for (const auto& factory : componentFactories_)
+    {
+        const auto storageBlock = archive.OpenSafeUnorderedBlock("storage");
+
+        ea::string typeName = factory->GetName();
+        SerializeValue(archive, "type", typeName);
+
+        unsigned version = factory->GetVersion();
+        SerializeValue(archive, "version", version);
+
+        factory->SaveComponentsPartial(archive, registry, version, entities);
     }
 }
 
