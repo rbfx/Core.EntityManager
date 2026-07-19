@@ -375,6 +375,8 @@ void EntityManager::Synchronize()
         return;
     synchronizationInProgress_ = true;
 
+    URHO3D_PROFILE("SynchronizeEntities");
+
     for (EntityReference* entityReference : pendingEntitiesAdded_)
     {
         // If registry has spawned this entity, everything is already configured.
@@ -494,6 +496,8 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
         return existingEntityReference;
     }
 
+    URHO3D_PROFILE("MaterializeEntity");
+
     URHO3D_LOGTRACE("Entity {} is materializing", entity);
 
     Node* entityNode = entitiesContainer_->CreateChild("Entity");
@@ -523,6 +527,8 @@ void EntityManager::DematerializeEntity(entt::entity entity)
         URHO3D_LOGWARNING("Entity {} is already dematerialized", entity);
         return;
     }
+
+    URHO3D_PROFILE("DematerializeEntity");
 
     URHO3D_LOGTRACE("Entity {} is dematerializing", entity);
 
