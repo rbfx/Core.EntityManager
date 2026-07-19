@@ -232,6 +232,10 @@ protected:
     void OnRemovedFromScene() override;
     /// @}
 
+    /// Acquire node for materialized entity.
+    virtual Node* AcquireEntityNode(Node* parentNode, entt::entity entity);
+    /// Release node of dematerialized entity.
+    virtual void ReleaseEntityNode(Node* node, entt::entity entity);
     /// Return display label for the entity.
     virtual ea::string GetEntityLabel(entt::entity entity) const;
     /// Post-update synchronization. Executed even if the Scene is paused.

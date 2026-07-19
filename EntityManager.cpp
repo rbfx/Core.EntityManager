@@ -488,6 +488,11 @@ void EntityManager::EnsureEntitiesMaterialized()
     };
 }
 
+Node* EntityManager::AcquireEntityNode(Node* parentNode, entt::entity entity)
+{
+    return parentNode->CreateChild();
+}
+
 EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
 {
     if (EntityReference* existingEntityReference = EntityToReference(entity))
@@ -500,7 +505,7 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
 
     URHO3D_LOGTRACE("Entity {} is materializing", entity);
 
-    Node* entityNode = entitiesContainer_->CreateChild("Entity");
+    Node* entityNode = AcquireEntityNode(entitiesContainer_, entity);
     entityNode->SetTemporary(useTemporaryNodes_);
 
     auto entityReference = MakeShared<EntityReference>(context_);
@@ -518,6 +523,11 @@ EntityReference* EntityManager::MaterializeEntity(entt::entity entity)
     URHO3D_ASSERT(IsEntityMaterialized(entity));
 
     return entityReference;
+}
+
+void EntityManager::ReleaseEntityNode(Node* node, entt::entity entity)
+{
+    node->Remove();
 }
 
 void EntityManager::DematerializeEntity(entt::entity entity)
@@ -540,7 +550,10 @@ void EntityManager::DematerializeEntity(entt::entity entity)
     entityReference->SetEntityInternal(entt::null);
 
     suppressComponentEvents_ = true;
-    entityReference->GetNode()->Remove();
+    const WeakPtr<Node> entityNode{entityReference->GetNode()};
+    ReleaseEntityNode(entityReference->GetNode(), entity);
+    if (entityNode)
+        entityNode->RemoveComponent<EntityReference>();
     suppressComponentEvents_ = false;
 
     registry_.remove<EntityMaterialized>(entity);
