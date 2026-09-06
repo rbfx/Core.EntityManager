@@ -706,6 +706,7 @@ void ComponentTypeManager::SerializeEntities(Archive& archive, entt::registry& r
 
         for (const entt::entity entity : entities)
         {
+            URHO3D_ASSERT(registry.valid(entity));
             auto entityData = static_cast<unsigned>(entity);
             archive.Serialize("entity", entityData);
         };

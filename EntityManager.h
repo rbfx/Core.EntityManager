@@ -358,6 +358,15 @@ void ComponentTypeManager::SerializeComponents(
             archive.Serialize("_entity", entityData);
             const auto entity = static_cast<entt::entity>(entityData);
 
+            if (!registry.valid(entity))
+            {
+                URHO3D_LOGWARNING("Component '{}' ignored for invalid entity {}", name, entity);
+
+                T placeholderComponent{};
+                placeholderComponent.SerializeInBlock(archive, version);
+                continue;
+            }
+
             if constexpr (!std::is_empty_v<T>)
             {
                 auto& component = registry.emplace_or_replace<T>(entity);
@@ -380,6 +389,7 @@ void ComponentTypeManager::SerializeComponents(
 
         for (const entt::entity entity : entities)
         {
+            URHO3D_ASSERTLOG(registry.valid(entity), "Component '{}' exists for invalid entity {}", name, entity);
             const auto elementBlock = archive.OpenUnorderedBlock("component");
 
             auto entityData = static_cast<unsigned>(entity);
@@ -528,6 +538,9 @@ void DefaultEntityComponentFactory<T>::CopyOrMoveComponents(
     {
         const entt::entity fromEntity = fromEntities[i];
         const entt::entity toEntity = toEntities[i];
+
+        URHO3D_ASSERT(fromEntity != entt::null && fromRegistry.valid(fromEntity));
+        URHO3D_ASSERT(toEntity != entt::null && toRegistry.valid(toEntity));
 
         if (!fromRegistry.template any_of<T>(fromEntity))
             continue;
